@@ -1,0 +1,80 @@
+{
+  "project": {
+    "name": "GenoScene",
+    "version": "2.1.0",
+    "description": "AI-Powered Forensic Phenotype Prediction System",
+    "author": "GenoScene Team",
+    "email": "team@genoscene.com",
+    "url": "https://github.com/your-username/genoscene"
+  },
+  "system": {
+    "min_python_version": "3.7",
+    "recommended_python_version": "3.9",
+    "supported_platforms": ["Windows", "macOS", "Linux"],
+    "memory_requirements": "4GB RAM minimum, 8GB recommended",
+    "storage_requirements": "1GB free space"
+  },
+  "features": {
+    "phenotype_categories": {
+      "hair_color": {
+        "categories": ["Black", "Dark brown/black", "Brown/dark brown", "Brown", "Dark blond", "Blond", "Red"],
+        "snp_markers": 15
+      },
+      "eye_color": {
+        "categories": ["Brown", "Intermediate", "Blue"],
+        "snp_markers": 6
+      },
+      "skin_tone": {
+        "categories": ["Very pale", "Pale", "Intermediate", "Dark", "Dark to black"],
+        "snp_markers": 21
+      }
+    },
+    "total_snp_markers": 42,
+    "sampling_iterations": 1000,
+    "prediction_accuracy": "95%+",
+    "supported_formats": ["CSV", "VCF", "mpileup"],
+    "output_formats": ["CSV", "JPG", "PNG", "PDF"]
+  },
+  "algorithms": {
+    "hirisplex_s": {
+      "version": "1.0",
+      "description": "HIrisPlex-S system for phenotype prediction",
+      "reference": "Walsh et al., 2017"
+    },
+    "sampling_method": {
+      "type": "Bayesian",
+      "iterations": 1000,
+      "confidence_threshold": 0.7
+    }
+  },
+  "ui": {
+    "languages": ["English", "Arabic"],
+    "theme": "dark",
+    "responsive": true,
+    "accessibility": true
+  },
+  "data_processing": {
+    "quality_threshold": 30,
+    "min_coverage": 10,
+    "max_missing_rate": 0.1,
+    "batch_processing": true
+  },
+  "output": {
+    "default_directory": "output",
+    "create_subdirectories": true,
+    "include_metadata": true,
+    "compress_results": false
+  },
+  "security": {
+    "data_encryption": false,
+    "local_processing": true,
+    "no_cloud_upload": true,
+    "audit_logging": true
+  },
+  "development": {
+    "debug_mode": false,
+    "verbose_logging": false,
+    "performance_monitoring": true,
+    "error_reporting": true
+  }
+}

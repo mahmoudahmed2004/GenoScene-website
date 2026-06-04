@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Face Images for GenoScene</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+        }
+        .face-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .face-item {
+            text-align: center;
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #444;
+        }
+        .face-svg {
+            width: 150px;
+            height: 150px;
+            margin: 10px auto;
+            display: block;
+        }
+        .face-label {
+            font-size: 12px;
+            color: #ccc;
+            margin-top: 10px;
+        }
+        .download-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .download-btn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>GenoScene - Face Image Generator</h1>
+    <p>This page generates realistic face images for all possible phenotype combinations.</p>
+    
+    <div class="face-container" id="faceContainer">
+        <!-- Faces will be generated here -->
+    </div>
+
+    <script>
+        // Color mappings for different phenotypes
+        const hairColors = {
+            'brown': '#8B4513',
+            'blonde': '#DAA520', 
+            'black': '#2F2F2F'
+        };
+
+        const eyeColors = {
+            'brown': '#8B4513',
+            'blue': '#4169E1',
+            'green': '#228B22'
+        };
+
+        const skinColors = {
+            'light': '#F4D1B6',
+            'medium': '#D1A679', 
+            'dark': '#8D5524'
+        };
+
+        // Generate all combinations
+        const combinations = [];
+        Object.keys(hairColors).forEach(hair => {
+            Object.keys(eyeColors).forEach(eye => {
+                Object.keys(skinColors).forEach(skin => {
+                    combinations.push({ hair, eye, skin });
+                });
+            });
+        });
+
+        // Create face SVG
+        function createFaceSVG(hair, eye, skin, id) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', '200');
+            svg.setAttribute('height', '200');
+            svg.setAttribute('viewBox', '0 0 200 200');
+            svg.setAttribute('id', id);
+            
+            // Face shape
+            const face = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+            face.setAttribute('cx', '100');
+            face.setAttribute('cy', '120');
+            face.setAttribute('rx', '70');
+            face.setAttribute('ry', '85');
+            face.setAttribute('fill', skinColors[skin]);
+            face.setAttribute('stroke', '#000');
+            face.setAttribute('stroke-width', '2');
+            
+            // Hair
+            const hairPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            hairPath.setAttribute('d', 'M 30 50 Q 100 20 170 50 Q 170 100 100 120 Q 30 100 30 50 Z');
+            hairPath.setAttribute('fill', hairColors[hair]);
+            hairPath.setAttribute('stroke', '#000');
+            hairPath.setAttribute('stroke-width', '1');
+            
+            // Left eye
+            const leftEye = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+            leftEye.setAttribute('cx', '75');
+            leftEye.setAttribute('cy', '100');
+            leftEye.setAttribute('rx', '12');
+            leftEye.setAttribute('ry', '18');
+            leftEye.setAttribute('fill', eyeColors[eye]);
+            leftEye.setAttribute('stroke', '#000');
+            leftEye.setAttribute('stroke-width', '1');
+            
+            // Right eye
+            const rightEye = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+            rightEye.setAttribute('cx', '125');
+            rightEye.setAttribute('cy', '100');
+            rightEye.setAttribute('rx', '12');
+            rightEye.setAttribute('ry', '18');
+            rightEye.setAttribute('fill', eyeColors[eye]);
+            rightEye.setAttribute('stroke', '#000');
+            rightEye.setAttribute('stroke-width', '1');
+            
+            // Nose
+            const nose = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+            nose.setAttribute('cx', '100');
+            nose.setAttribute('cy', '130');
+            nose.setAttribute('rx', '8');
+            nose.setAttribute('ry', '12');
+            nose.setAttribute('fill', 'none');
+            nose.setAttribute('stroke', '#000');
+            nose.setAttribute('stroke-width', '1');
+            
+            // Mouth
+            const mouth = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            mouth.setAttribute('d', 'M 85 150 Q 100 160 115 150');
+            mouth.setAttribute('fill', 'none');
+            mouth.setAttribute('stroke', '#8B0000');
+            mouth.setAttribute('stroke-width', '2');
+            mouth.setAttribute('stroke-linecap', 'round');
+            
+            // Add all elements to SVG
+            svg.appendChild(hairPath);
+            svg.appendChild(face);
+            svg.appendChild(leftEye);
+            svg.appendChild(rightEye);
+            svg.appendChild(nose);
+            svg.appendChild(mouth);
+            
+            return svg;
+        }
+
+        // Generate all faces
+        const container = document.getElementById('faceContainer');
+        
+        combinations.forEach((combo, index) => {
+            const faceItem = document.createElement('div');
+            faceItem.className = 'face-item';
+            
+            const svg = createFaceSVG(combo.hair, combo.eye, combo.skin, `face_${combo.hair}_${combo.eye}_${combo.skin}`);
+            
+            const label = document.createElement('div');
+            label.className = 'face-label';
+            label.textContent = `${combo.hair} hair, ${combo.eye} eyes, ${combo.skin} skin`;
+            
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'download-btn';
+            downloadBtn.textContent = 'Download PNG';
+            downloadBtn.onclick = () => downloadSVGAsPNG(svg, `face_${combo.hair}_${combo.eye}_${combo.skin}.png`);
+            
+            faceItem.appendChild(svg);
+            faceItem.appendChild(label);
+            faceItem.appendChild(downloadBtn);
+            container.appendChild(faceItem);
+        });
+
+        // Download SVG as PNG
+        function downloadSVGAsPNG(svg, filename) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(svgBlob);
+            
+            img.onload = function() {
+                canvas.width = 200;
+                canvas.height = 200;
+                ctx.drawImage(img, 0, 0);
+                
+                canvas.toBlob(function(blob) {
+                    const link = document.createElement('a');
+                    link.download = filename;
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                });
+                
+                URL.revokeObjectURL(url);
+            };
+            
+            img.src = url;
+        }
+
+        // Auto-download all images
+        function downloadAllImages() {
+            const svgs = document.querySelectorAll('svg');
+            let index = 0;
+            
+            function downloadNext() {
+                if (index < svgs.length) {
+                    const svg = svgs[index];
+                    const combo = combinations[index];
+                    const filename = `face_${combo.hair}_${combo.eye}_${combo.skin}.png`;
+                    
+                    setTimeout(() => {
+                        downloadSVGAsPNG(svg, filename);
+                        index++;
+                        downloadNext();
+                    }, 500); // Delay between downloads
+                }
+            }
+            
+            downloadNext();
+        }
+
+        // Add download all button
+        const downloadAllBtn = document.createElement('button');
+        downloadAllBtn.textContent = 'Download All Images';
+        downloadAllBtn.style.cssText = 'background: #2196F3; color: white; border: none; padding: 15px 30px; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 20px 0;';
+        downloadAllBtn.onclick = downloadAllImages;
+        document.body.insertBefore(downloadAllBtn, container);
+    </script>
+</body>
+</html>
