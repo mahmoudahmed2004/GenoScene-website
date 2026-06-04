@@ -1,11 +1,13 @@
 const state = {
   lang: 'en',
   probs: {
-    hair: {brown: 0.4, blonde: 0.3, black: 0.3}, 
-    eye: {brown: 0.5, blue: 0.3, green: 0.2}, 
-    skin: {light: 0.4, medium: 0.4, dark: 0.2}
+    hair: {blonde: 0.25, brown: 0.25, red: 0.25, black: 0.25},
+    eye: {blue: 0.34, intermediate: 0.33, brown: 0.33},
+    skin: {veryPale: 0.2, pale: 0.2, intermediate: 0.2, dark: 0.2, darkToBlack: 0.2}
   },
-  hasPrediction: false
+  hasPrediction: false,
+  uploadedFile: null,
+  modelMeta: null
 };
 
 // API key for Stable Diffusion text-to-image service. Replace with your
@@ -60,17 +62,28 @@ function handleFileSelect(event) {
   
   if (fileInput.files.length > 0) {
     const file = fileInput.files[0];
-    fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
-    fileInfo.style.color = '#22d3ee';
-    // If the selected file is a CSV, parse it to compute phenotype probabilities
     const nameLower = file.name.toLowerCase();
     if (nameLower.endsWith('.csv')) {
-      parseCSVFile(file);
-    } else {
-      // Clear previous probabilities and inform the user to upload a CSV for SNP analysis
+      state.uploadedFile = file;
       state.hasPrediction = false;
+      state.modelMeta = null;
+      document.getElementById('generateFaceBtn').disabled = true;
+      clearPredictionDisplay();
+      fileInfo.textContent = `${file.name} (${formatFileSize(file.size)}) — ready for AI analysis`;
+      fileInfo.style.color = '#22d3ee';
+    } else {
+      state.uploadedFile = null;
+      state.hasPrediction = false;
+      document.getElementById('generateFaceBtn').disabled = true;
+      clearPredictionDisplay();
+      fileInfo.textContent = state.lang === 'en' ? 'Please select a CSV file.' : 'يرجى اختيار ملف CSV.';
+      fileInfo.style.color = '#fb7185';
     }
   } else {
+    state.uploadedFile = null;
+    state.hasPrediction = false;
+    document.getElementById('generateFaceBtn').disabled = true;
+    clearPredictionDisplay();
     fileInfo.textContent = '';
   }
 }
@@ -82,143 +95,49 @@ function formatFileSize(bytes) {
   else return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
-/**
- * Compute phenotype probabilities based on a sample's SNP genotype data. The
- * sample argument is an object mapping SNP column names (e.g.
- * 'rs12913832_T') to genotype strings (e.g. 'AA', 'AG'). For
- * demonstration purposes we implement simplified heuristics derived from
- * published associations in the HIrisPlex-S system. These heuristics
- * approximate the probability of hair colour (brown, blonde, black), eye
- * colour (brown, blue, green) and skin tone (light, medium, dark).
- *
- * @param {Object} sample - key/value pairs of SNP column and genotype
- * @returns {Object} An object with `hair`, `eye` and `skin` probability
- *   distributions, each summing to 1.
- */
-function computePhenotypeProbs(sample) {
-  // Eye colour heuristics
-  let eyeBlue = 1, eyeBrown = 1, eyeGreen = 1;
-  // rs12913832_T strongly associated with blue eyes
-  if (sample['rs12913832_T']) {
-    eyeBlue += 3;
-  } else {
-    eyeBrown += 2;
-  }
-  // rs12896399_T and rs1393350_T contribute to green/blue
-  if (sample['rs12896399_T']) {
-    eyeGreen += 1;
-  }
-  if (sample['rs1393350_T']) {
-    eyeBlue += 0.5;
-  }
-  const eyeSum = eyeBlue + eyeBrown + eyeGreen;
-  const eye = {
-    blue: eyeBlue / eyeSum,
-    brown: eyeBrown / eyeSum,
-    green: eyeGreen / eyeSum
-  };
+function parseCSVLine(line) {
+  const values = [];
+  let value = '';
+  let quoted = false;
 
-  // Hair colour heuristics
-  let hairBlonde = 1, hairBrown = 1, hairBlack = 1;
-  // Alleles contributing to blonde hair
-  if (sample['rs12821256_G']) hairBlonde += 1;
-  if (sample['rs12203592_T']) hairBlonde += 0.8;
-  if (sample['rs1393350_T']) hairBlonde += 0.5;
-  if (sample['rs683_G']) hairBlonde += 0.3;
-  // Alleles associated with darker hair
-  if (sample['rs16891982_C']) hairBrown += 0.5;
-  // MC1R variants associated with red/dark hair
-  if (sample['rs1805008_T'] || sample['rs1805005_T'] || sample['rs1805006_A'] || sample['rs1805007_T'] || sample['rs1805009_C']) {
-    hairBrown += 1;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"' && line[index + 1] === '"') {
+      value += '"';
+      index += 1;
+    } else if (character === '"') {
+      quoted = !quoted;
+    } else if (character === ',' && !quoted) {
+      values.push(value.trim());
+      value = '';
+    } else {
+      value += character;
+    }
   }
-  const hairSum = hairBlonde + hairBrown + hairBlack;
-  const hair = {
-    blonde: hairBlonde / hairSum,
-    brown: hairBrown / hairSum,
-    black: hairBlack / hairSum
-  };
-
-  // Skin tone heuristics
-  let lightScore = 1, darkScore = 1;
-  // rs1426654_G: ancestral allele associated with darker skin
-  if (sample['rs1426654_G']) {
-    darkScore += 2;
-  } else {
-    lightScore += 1;
-  }
-  // rs16891982_C (SLC45A2) associated with lighter skin
-  if (sample['rs16891982_C']) {
-    lightScore += 2;
-  } else {
-    darkScore += 1;
-  }
-  // rs6119471_C and rs1545397_T also associated with lighter skin
-  if (sample['rs6119471_C']) {
-    lightScore += 1;
-  } else {
-    darkScore += 0.5;
-  }
-  if (sample['rs1545397_T']) {
-    lightScore += 1;
-  } else {
-    darkScore += 0.5;
-  }
-  const skinSum = lightScore + darkScore;
-  let skinLight = lightScore / skinSum;
-  let skinDark = darkScore / skinSum;
-  let skinMedium = 1 - skinLight - skinDark;
-  if (skinMedium < 0) skinMedium = 0;
-  const skin = {
-    light: skinLight,
-    medium: skinMedium,
-    dark: skinDark
-  };
-  return { hair, eye, skin };
+  values.push(value.trim());
+  return values;
 }
 
-/**
- * Parse a CSV file containing SNP genotype data. The CSV must have a
- * header row and at least one data row. Column names should match the
- * SNP identifiers used in the HIrisPlex-S system (e.g. 'rs12913832_T').
- * The first data row will be used to compute phenotype probabilities.
- *
- * When parsing succeeds, the computed probabilities are stored in
- * `state.probs` and the UI is updated via `render()`. The generate face
- * button is enabled and `state.hasPrediction` is set to true. If
- * parsing fails, an alert is shown.
- *
- * @param {File} file - The uploaded CSV file
- */
-function parseCSVFile(file) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const text = e.target.result.trim();
-    const lines = text.split(/\r?\n/);
-    if (lines.length < 2) {
-      alert(state.lang === 'en' ? 'CSV file must contain at least one data row.' : 'يجب أن يحتوي ملف CSV على صف بيانات واحد على الأقل.');
-      return;
-    }
-    const header = lines[0].split(',');
-    const row = lines[1].split(',');
-    const sample = {};
-    for (let i = 0; i < header.length; i++) {
-      const key = header[i].trim();
-      const value = row[i] ? row[i].trim() : '';
-      if (value && value !== 'NA' && value !== '0') {
-        sample[key] = value;
-      }
-    }
-    const probs = computePhenotypeProbs(sample);
-    state.probs = probs;
-    state.hasPrediction = true;
-    // Enable generate face button
-    document.getElementById('generateFaceBtn').disabled = false;
-    render();
-  };
-  reader.onerror = function() {
-    alert(state.lang === 'en' ? 'Failed to read the CSV file.' : 'فشل في قراءة ملف CSV');
-  };
-  reader.readAsText(file);
+function parseCSVText(text) {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim());
+  if (lines.length < 2) {
+    throw new Error(state.lang === 'en'
+      ? 'CSV file must contain a header and at least one data row.'
+      : 'يجب أن يحتوي ملف CSV على عناوين وصف بيانات واحد على الأقل.');
+  }
+
+  const headers = parseCSVLine(lines[0]);
+  const snpCount = headers.filter(header => header.startsWith('rs')).length;
+  if (snpCount === 0) {
+    throw new Error(state.lang === 'en'
+      ? 'No SNP columns were found. Expected columns such as rs12913832_T.'
+      : 'لم يتم العثور على أعمدة SNP مثل rs12913832_T.');
+  }
+
+  return lines.slice(1, 26).map(line => {
+    const values = parseCSVLine(line);
+    return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? '']));
+  });
 }
 
 // دالة لإظهار التحميل
@@ -231,6 +150,25 @@ function hideLoading() {
   document.getElementById('processingOverlay').classList.add('hidden');
 }
 
+function clearPredictionDisplay() {
+  document.getElementById('generatedFace').classList.add('hidden');
+  document.getElementById('faceSvg').classList.add('hidden');
+  document.getElementById('facePlaceholder').classList.remove('hidden');
+  document.getElementById('avatarSummary').textContent =
+    state.lang === 'en' ? 'No predictions yet' : 'لا توجد تنبؤات بعد';
+
+  document.getElementById('hairTxt').textContent = state.lang === 'en' ? 'Hair: —' : 'الشعر: —';
+  document.getElementById('eyeTxt').textContent = state.lang === 'en' ? 'Eyes: —' : 'العينان: —';
+  document.getElementById('skinTxt').textContent = state.lang === 'en' ? 'Skin: —' : 'البشرة: —';
+
+  ['Hair', 'Eye', 'Skin'].forEach(trait => {
+    const bar = document.getElementById(`bar${trait}`);
+    bar.style.height = '30%';
+    bar.innerHTML = '';
+    document.getElementById(`${trait.toLowerCase()}Details`).innerHTML = '';
+  });
+}
+
 // دالة لتحميل بيانات تجريبية
 function loadDemo(){
   document.getElementById('sampleId').value = 'DEMO-FTDNA-001';
@@ -239,10 +177,11 @@ function loadDemo(){
   
   // إعداد احتمالات تجريبية
   state.probs = {
-    hair: {brown: 0.62, blonde: 0.18, black: 0.20},
-    eye: {brown: 0.55, blue: 0.25, green: 0.20},
-    skin: {light: 0.35, medium: 0.45, dark: 0.20}
+    hair: {blonde: 0.18, brown: 0.56, red: 0.06, black: 0.20},
+    eye: {blue: 0.25, intermediate: 0.20, brown: 0.55},
+    skin: {veryPale: 0.08, pale: 0.27, intermediate: 0.45, dark: 0.15, darkToBlack: 0.05}
   };
+  state.uploadedFile = null;
   // Mark that we have a prediction from demo data
   state.hasPrediction = true;
   // تمكين زر توليد الوجه
@@ -257,7 +196,7 @@ function loadDemo(){
 }
 
 // دالة للتنبؤ بالسمات
-function predict(){
+async function predict(){
   // التحقق من وجود بيانات
   const sampleId = document.getElementById('sampleId').value;
   if (!sampleId) {
@@ -265,19 +204,45 @@ function predict(){
     return;
   }
   
-  // If no phenotype probabilities computed from a CSV or demo, alert the user
-  if (!state.hasPrediction) {
+  if (!state.uploadedFile && !state.hasPrediction) {
     alert(state.lang === 'en' ? 'Please upload a SNP CSV file or load demo/random data first.' : 'يرجى رفع ملف CSV يحتوي على SNPs أو تحميل بيانات تجريبية/عشوائية أولاً.');
     return;
   }
+
+  if (!state.uploadedFile && state.hasPrediction) {
+    render();
+    return;
+  }
+
   showLoading();
-  // Simulate a short processing delay
-  setTimeout(() => {
-    // Save current state if needed
+  try {
+    const samples = parseCSVText(await state.uploadedFile.text());
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({sample_id: sampleId, samples})
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || 'AI analysis failed.');
+    }
+
+    state.probs = payload.results[0].probabilities;
+    state.modelMeta = payload.model;
+    state.hasPrediction = true;
+    document.getElementById('generateFaceBtn').disabled = false;
+    document.getElementById('vcfFileInfo').textContent =
+      `${state.uploadedFile.name} — ${payload.count} sample${payload.count === 1 ? '' : 's'} analyzed by AI`;
     saveState();
     render();
+  } catch (error) {
+    console.error(error);
+    alert(state.lang === 'en'
+      ? `Could not analyze this file: ${error.message}`
+      : `تعذر تحليل الملف: ${error.message}`);
+  } finally {
     hideLoading();
-  }, 800);
+  }
 }
 
 // دالة لتوليد الوجه
@@ -305,8 +270,12 @@ async function generateFace() {
   faceSvg.classList.add('hidden');
   facePlaceholder.classList.add('hidden');
 
-  // محاولة تحميل صورة واقعية من الصور المسبقة التخزين
-  const filePath = `face_images/face_${hair}_${eye}_${skin}.png`;
+  // Match the detailed model classes to the simplified pre-generated image set.
+  const imageEye = eye === 'intermediate' ? 'green' : eye;
+  const imageSkin = ['veryPale', 'pale'].includes(skin)
+    ? 'light'
+    : skin === 'intermediate' ? 'medium' : 'dark';
+  const filePath = `face_images/face_${hair}_${imageEye}_${imageSkin}.png`;
   
   // إعداد معالجات الأحداث
   faceImg.onload = () => {
@@ -340,17 +309,20 @@ function renderSimpleFace(hair, eye, skin) {
   const hairColorMap = {
     brown: '#8b4513',
     blonde: '#d2b48c',
+    red: '#a63d24',
     black: '#2f2f2f'
   };
   const eyeColorMap = {
     brown: '#4e3629',
     blue: '#0072b5',
-    green: '#2e8b57'
+    intermediate: '#708238'
   };
   const skinColorMap = {
-    light: '#f4d1b6',
-    medium: '#d1a679',
-    dark: '#8d5524'
+    veryPale: '#fae1d2',
+    pale: '#f4d1b6',
+    intermediate: '#d1a679',
+    dark: '#9a6742',
+    darkToBlack: '#5b3825'
   };
   
   // تحديث ألوان SVG
@@ -373,17 +345,20 @@ function updateAvatarSummary(hair, eye, skin) {
   const hairLabels = {
     'brown': state.lang === 'en' ? 'Brown' : 'بني', 
     'blonde': state.lang === 'en' ? 'Blonde' : 'أشقر', 
+    'red': state.lang === 'en' ? 'Red' : 'أحمر',
     'black': state.lang === 'en' ? 'Black' : 'أسود'
   };
   const eyeLabels = {
     'brown': state.lang === 'en' ? 'Brown' : 'بني', 
     'blue': state.lang === 'en' ? 'Blue' : 'أزرق', 
-    'green': state.lang === 'en' ? 'Green' : 'أخضر'
+    'intermediate': state.lang === 'en' ? 'Intermediate' : 'متوسط'
   };
   const skinLabels = {
-    'light': state.lang === 'en' ? 'Light' : 'فاتح', 
-    'medium': state.lang === 'en' ? 'Medium' : 'متوسط', 
-    'dark': state.lang === 'en' ? 'Dark' : 'غامق'
+    'veryPale': state.lang === 'en' ? 'Very Pale' : 'فاتح جدًا',
+    'pale': state.lang === 'en' ? 'Pale' : 'فاتح',
+    'intermediate': state.lang === 'en' ? 'Intermediate' : 'متوسط',
+    'dark': state.lang === 'en' ? 'Dark' : 'غامق',
+    'darkToBlack': state.lang === 'en' ? 'Dark to Black' : 'غامق جدًا'
   };
   
   const summary = state.lang === 'en' 
@@ -400,9 +375,10 @@ function pct(x) {
 
 // دالة لعرض البيانات على المخططات والنصوص
 function render() {
-  const hairP = Math.max(state.probs.hair.brown, state.probs.hair.blonde, state.probs.hair.black);
-  const eyeP = Math.max(state.probs.eye.brown, state.probs.eye.blue, state.probs.eye.green);
-  const skinP = Math.max(state.probs.skin.light, state.probs.skin.medium, state.probs.skin.dark);
+  const maxProbability = probs => Math.max(...Object.values(probs));
+  const hairP = maxProbability(state.probs.hair);
+  const eyeP = maxProbability(state.probs.eye);
+  const skinP = maxProbability(state.probs.skin);
 
   const labelHair = state.lang === 'en' ? 'Hair' : 'الشعر';
   const labelEye = state.lang === 'en' ? 'Eyes' : 'العينان';
@@ -432,17 +408,20 @@ function render() {
   const hairLabels = {
     'brown': state.lang === 'en' ? 'brown' : 'بني', 
     'blonde': state.lang === 'en' ? 'blonde' : 'أشقر', 
+    'red': state.lang === 'en' ? 'red' : 'أحمر',
     'black': state.lang === 'en' ? 'black' : 'أسود'
   };
   const eyeLabels = {
     'brown': state.lang === 'en' ? 'brown' : 'بني', 
     'blue': state.lang === 'en' ? 'blue' : 'أزرق', 
-    'green': state.lang === 'en' ? 'green' : 'أخضر'
+    'intermediate': state.lang === 'en' ? 'intermediate' : 'متوسط'
   };
   const skinLabels = {
-    'light': state.lang === 'en' ? 'light' : 'فاتح', 
-    'medium': state.lang === 'en' ? 'medium' : 'متوسط', 
-    'dark': state.lang === 'en' ? 'dark' : 'غامق'
+    'veryPale': state.lang === 'en' ? 'very pale' : 'فاتح جدًا',
+    'pale': state.lang === 'en' ? 'pale' : 'فاتح',
+    'intermediate': state.lang === 'en' ? 'intermediate' : 'متوسط',
+    'dark': state.lang === 'en' ? 'dark' : 'غامق',
+    'darkToBlack': state.lang === 'en' ? 'dark to black' : 'غامق جدًا'
   };
   
   document.getElementById('hairTxt').textContent =
@@ -475,17 +454,20 @@ function generateDetailHTML(probs, lang, type) {
     hair: {
       brown: lang === 'en' ? 'Brown' : 'بني',
       blonde: lang === 'en' ? 'Blonde' : 'أشقر', 
+      red: lang === 'en' ? 'Red' : 'أحمر',
       black: lang === 'en' ? 'Black' : 'أسود'
     },
     eye: {
       brown: lang === 'en' ? 'Brown' : 'بني',
       blue: lang === 'en' ? 'Blue' : 'أزرق', 
-      green: lang === 'en' ? 'Green' : 'أخضر'
+      intermediate: lang === 'en' ? 'Intermediate' : 'متوسط'
     },
     skin: {
-      light: lang === 'en' ? 'Light' : 'فاتح',
-      medium: lang === 'en' ? 'Medium' : 'متوسط', 
-      dark: lang === 'en' ? 'Dark' : 'غامق'
+      veryPale: lang === 'en' ? 'Very Pale' : 'فاتح جدًا',
+      pale: lang === 'en' ? 'Pale' : 'فاتح',
+      intermediate: lang === 'en' ? 'Intermediate' : 'متوسط',
+      dark: lang === 'en' ? 'Dark' : 'غامق',
+      darkToBlack: lang === 'en' ? 'Dark to Black' : 'غامق جدًا'
     }
   };
   
@@ -539,11 +521,13 @@ function resetApp() {
   document.getElementById('generateFaceBtn').disabled = true;
   
   state.probs = {
-    hair: {brown: 0.4, blonde: 0.3, black: 0.3},
-    eye: {brown: 0.5, blue: 0.3, green: 0.2},
-    skin: {light: 0.4, medium: 0.4, dark: 0.2}
+    hair: {blonde: 0.25, brown: 0.25, red: 0.25, black: 0.25},
+    eye: {blue: 0.34, intermediate: 0.33, brown: 0.33},
+    skin: {veryPale: 0.2, pale: 0.2, intermediate: 0.2, dark: 0.2, darkToBlack: 0.2}
   };
   state.hasPrediction = false;
+  state.uploadedFile = null;
+  state.modelMeta = null;
   
   document.getElementById('hairTxt').textContent = state.lang === 'en' ? 'Hair: —' : 'الشعر: —';
   document.getElementById('eyeTxt').textContent = state.lang === 'en' ? 'Eyes: —' : 'العينان: —';
@@ -566,7 +550,6 @@ function resetApp() {
 
 // دالة لتهيئة التطبيق
 function initApp() {
-  render();
   tSync();
 }
 

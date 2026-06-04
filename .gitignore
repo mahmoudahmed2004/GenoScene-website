@@ -168,6 +168,14 @@ data/*.fq
 !data/Allele_rs_hs37d5.csv
 !data/*.list
 !data/face_images/
+!ai/final_merged_3.csv
+!TEST.csv
+!examples/*.csv
+!assets/*.jpg
+!assets/*.jpeg
+!assets/*.png
+!face_images/*.png
+!requirements.txt
 
 # Backup files
 *.bak

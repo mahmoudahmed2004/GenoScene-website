@@ -1,0 +1,29 @@
+# GenoScene - AI-Powered Forensic Phenotype Prediction System
+# Required Python packages and their versions
+
+# Core data processing
+pandas>=1.3.0
+numpy>=1.21.0
+scikit-learn>=1.2.0
+
+# Scientific computing
+scipy>=1.7.0
+
+# Data visualization
+matplotlib>=3.4.0
+
+# Optional: Enhanced data analysis
+seaborn>=0.11.0
+
+# Optional: Progress bars for long operations
+tqdm>=4.62.0
+
+# Optional: Better CSV handling
+openpyxl>=3.0.0
+
+# Development and testing (optional)
+pytest>=6.2.0
+jupyter>=1.0.0
+
+# Note: This system is designed to work with Python 3.7+
+# For best performance, Python 3.8+ is recommended

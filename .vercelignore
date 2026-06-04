@@ -1,0 +1,19 @@
+# Training and local research files stay in GitHub, but are not public on Vercel.
+ai/
+training/
+src/
+data/
+docs/
+examples/
+output/
+test/
+tests/
+scripts/
+.idea/
+*.py
+*.bat
+*.sh
+requirements.txt
+setup.py
+TEST.csv
+EXAMPLE_001_*
